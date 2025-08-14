@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 require('dotenv').config(); // .env ফাইল থেকে ভেরিয়েবল লোড করার জন্য
 const User = require('./models/User'); // ইউজার মডেল ইমপোর্ট করুন
 const Post = require('./models/Post'); // পোস্ট মডেল ইমপোর্ট করুন
+const verifyToken = require('./middleware/verifyToken'); // মিডলওয়্যার ইমপোর্ট করুন
 // অ্যাপ ইনিশিয়ালাইজেশন
 const app = express();
 const port = process.env.PORT || 5000;
@@ -18,6 +19,12 @@ mongoose.connect(uri, { useNewUrlParser: true, useUnifiedTopology: true });
 const connection = mongoose.connection;
 connection.once('open', () => {
     console.log("✅ MongoDB database connection established successfully!");
+});
+// --- Firebase Admin SDK Setup ---
+const admin = require('firebase-admin');
+const serviceAccount = require('./serviceAccountKey.json');
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount)
 });
 
 // --- Mongoose Schema and Model (উদাহরণ) ---
@@ -105,6 +112,42 @@ app.get('/api/posts', async (req, res) => {
 
     } catch (error) {
         res.status(500).json({ message: "Error fetching posts", error: error.message });
+    }
+});
+
+// --- নতুন রুট: নির্দিষ্ট ইউজারের সব পোস্ট পাওয়ার জন্য (সুরক্ষিত) ---
+app.get('/api/my-posts', verifyToken, async (req, res) => {
+    try {
+        const userUid = req.user.uid; // verifyToken থেকে পাওয়া uid
+        const posts = await Post.find({ ownerId: userUid }).sort({ createdAt: -1 });
+        res.status(200).json(posts);
+    } catch (error) {
+        res.status(500).json({ message: 'Error fetching user posts', error: error.message });
+    }
+});
+
+// --- নতুন রুট: একটি পোস্ট ডিলিট করার জন্য (সুরক্ষিত) ---
+app.delete('/api/posts/:id', verifyToken, async (req, res) => {
+    try {
+        const postId = req.params.id;
+        const userUid = req.user.uid;
+
+        const post = await Post.findById(postId);
+
+        if (!post) {
+            return res.status(404).json({ message: 'Post not found.' });
+        }
+
+        // চেক করা হচ্ছে যে ইউজারটি পোস্টের আসল মালিক কি না
+        if (post.ownerId !== userUid) {
+            return res.status(403).json({ message: 'Forbidden: You are not the owner of this post.' });
+        }
+
+        await Post.findByIdAndDelete(postId);
+        res.status(200).json({ message: 'Post deleted successfully.' });
+
+    } catch (error) {
+        res.status(500).json({ message: 'Error deleting post', error: error.message });
     }
 });
 
