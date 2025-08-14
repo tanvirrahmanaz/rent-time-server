@@ -75,6 +75,54 @@ app.post('/api/posts', async (req, res) => {
     }
 });
 
+app.get('/api/posts', async (req, res) => {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 9; // প্রতি পেইজে ৯টি পোস্ট
+        const postType = req.query.type; // URL থেকে 'type' প্যারামিটার নিন (যেমন: house, roommate)
+        const skip = (page - 1) * limit;
+
+        // ফিল্টার করার জন্য একটি অবজেক্ট তৈরি করুন
+        const filter = {};
+        if (postType) {
+            filter.postType = postType;
+        }
+
+        // ফিল্টারসহ মোট পোস্ট গণনা করুন
+        const totalPosts = await Post.countDocuments(filter);
+        
+        // ফিল্টারসহ নির্দিষ্ট পেইজের জন্য পোস্ট খুঁজুন
+        const posts = await Post.find(filter)
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit);
+        
+        res.status(200).json({
+            posts,
+            totalPages: Math.ceil(totalPosts / limit),
+            currentPage: page,
+        });
+
+    } catch (error) {
+        res.status(500).json({ message: "Error fetching posts", error: error.message });
+    }
+});
+
+app.get('/api/posts/:id', async (req, res) => {
+    try {
+        const postId = req.params.id;
+        const post = await Post.findById(postId);
+        
+        if (!post) {
+            return res.status(404).json({ message: "Post not found." });
+        }
+        
+        res.status(200).json(post);
+    } catch (error) {
+        res.status(500).json({ message: "Error fetching post details", error: error.message });
+    }
+});
+
 // --- API রাউট (Routes) ---
 // টেস্ট রুট
 app.get('/', (req, res) => {
