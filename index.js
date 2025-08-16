@@ -86,20 +86,35 @@ app.post('/api/posts', async (req, res) => {
 app.get('/api/posts', async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 9; // প্রতি পেইজে ৯টি পোস্ট
-        const postType = req.query.type; // URL থেকে 'type' প্যারামিটার নিন (যেমন: house, roommate)
+        const limit = parseInt(req.query.limit) || 9;
         const skip = (page - 1) * limit;
 
-        // ফিল্টার করার জন্য একটি অবজেক্ট তৈরি করুন
+        // --- ফিল্টার লজিক ---
         const filter = {};
-        if (postType) {
-            filter.postType = postType;
+        
+        // Post Type অনুযায়ী ফিল্টার
+        if (req.query.type) {
+            filter.postType = req.query.type;
         }
 
-        // ফিল্টারসহ মোট পোস্ট গণনা করুন
+        // Location অনুযায়ী ফিল্টার (case-insensitive)
+        if (req.query.location) {
+            filter.location = { $regex: req.query.location, $options: 'i' };
+        }
+
+        // Price Range অনুযায়ী ফিল্টার
+        if (req.query.minPrice || req.query.maxPrice) {
+            filter.rent = {};
+            if (req.query.minPrice) {
+                filter.rent.$gte = parseInt(req.query.minPrice); // gte = greater than or equal
+            }
+            if (req.query.maxPrice) {
+                filter.rent.$lte = parseInt(req.query.maxPrice); // lte = less than or equal
+            }
+        }
+        // --------------------
+
         const totalPosts = await Post.countDocuments(filter);
-        
-        // ফিল্টারসহ নির্দিষ্ট পেইজের জন্য পোস্ট খুঁজুন
         const posts = await Post.find(filter)
             .sort({ createdAt: -1 })
             .skip(skip)
@@ -275,6 +290,31 @@ app.delete('/api/bookings/:id', verifyToken, async (req, res) => {
         res.status(500).json({ message: 'Error cancelling booking request', error: error.message });
     }
 });
+app.get('/api/bookings/check/:postId', verifyToken, async (req, res) => {
+    try {
+        const { postId } = req.params;
+        const requesterId = req.user.uid; // টোকেন থেকে পাওয়া ইউজারের আইডি
+
+        // ডেটাবেজে পোস্ট আইডি এবং ইউজার আইডি দিয়ে বুকিং খোঁজা হচ্ছে
+        const booking = await Booking.findOne({ postId: postId, requesterId: requesterId });
+
+        if (booking) {
+            // যদি বুকিং পাওয়া যায়
+            res.status(200).json({
+                hasBooking: true,
+                status: booking.status // 'Pending', 'Approved', বা 'Rejected'
+            });
+        } else {
+            // যদি কোনো বুকিং পাওয়া না যায়
+            res.status(200).json({
+                hasBooking: false,
+                status: null
+            });
+        }
+    } catch (error) {
+        res.status(500).json({ message: 'Error checking booking status', error: error.message });
+    }
+});
 
 // --- API রাউট (Routes) ---
 // টেস্ট রুট
@@ -296,6 +336,4 @@ app.post('/api/users', async (req, res) => {
 
 
 // --- সার্ভার চালু করা ---
-app.listen(port, () => {
-    console.log(`🚀 Server is running on port: ${port}`);
-});
+module.exports = app;

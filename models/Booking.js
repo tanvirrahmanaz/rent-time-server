@@ -11,12 +11,12 @@ const bookingSchema = new Schema({
         type: String,
         required: true,
     },
-    requesterId: { // যে ইউজার রিকোয়েস্ট পাঠিয়েছে তার UID
+    requesterId: { // যে ইউজার রিকোয়েস্ট পাঠিয়েছে তার UID
         type: String,
         required: true,
     },
-    requesterName: { type: String, required: true }, // সহজে দেখানোর জন্য
-    requesterEmail: { type: String, required: true }, // সহজে দেখানোর জন্য
+    requesterName: { type: String, required: true },
+    requesterEmail: { type: String, required: true },
     status: {
         type: String,
         enum: ['Pending', 'Approved', 'Rejected'],
@@ -25,4 +25,5 @@ const bookingSchema = new Schema({
 }, { timestamps: true });
 
 const Booking = mongoose.model('Booking', bookingSchema);
+
 module.exports = Booking;

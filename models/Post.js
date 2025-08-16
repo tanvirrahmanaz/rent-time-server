@@ -26,13 +26,12 @@ const postSchema = new mongoose.Schema({
     preferredGender: { type: String, enum: ['Male', 'Female', 'Any'] },
     preferredOccupation: { type: String, enum: ['Student', 'Professional', 'Any'] },
 
-    // --- Verification & Rules (New) ---
+    // --- Verification & Rules ---
     nidNumber: { type: String }, // Optional, for verification
-    rules: { type: [String] }, // e.g., No smoking, Pets not allowed
+    rules: { type: [String] },
 
-    // --- Timestamps ---
-    createdAt: { type: Date, default: Date.now },
-}, { timestamps: true }); // `updatedAt` field automatically adds
+}, { timestamps: true }); // createdAt এবং updatedAt স্বয়ংক্রিয়ভাবে যোগ হবে
 
 const Post = mongoose.model('Post', postSchema);
+
 module.exports = Post;
